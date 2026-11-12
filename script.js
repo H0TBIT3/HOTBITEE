@@ -1,25 +1,25 @@
 const PRODUCTOS = [
-  { id: "gomi-bite", nombre: "Gomi Bite P", imagen: "GOMI BITE.jpeg", categoria: "cajas", precio: 26000 },
+  { id: "gomi-bite", nombre: "Gomi Bite 0.1", imagen: "GOMI BITE.jpeg", categoria: "cajas", precio: 26000 },
   { id: "gomi-2-0", nombre: "Gomi 2.0", imagen: "GOMI 2.0.jpeg", categoria: "bandejas", precio: 34000 },
-  { id: "fruti-hot", nombre: "Fruti Hot P", imagen: "FRUTI HOT.jpeg", categoria: "cajas", precio: 24000 },
+  { id: "fruti-hot", nombre: "Fruti Hot 0.1", imagen: "FRUTI HOT.jpeg", categoria: "cajas", precio: 24000 },
   { id: "gomi-rush", nombre: "Gomi Rush", imagen: "GOMI RUSH.jpeg", categoria: "bandejas", precio: 36000 },
-  { id: "gomi-rush-pe", nombre: "Gomi Rush P", imagen: "GOMI RUSH PE.jpeg", categoria: "cajas", precio: 24000 },
+  { id: "gomi-rush-pe", nombre: "Gomi Rush 0.1", imagen: "GOMI RUSH PE.jpeg", categoria: "cajas", precio: 24000 },
   { id: "gomi-love", nombre: "Gomi Love", imagen: "GOMI LOVE.jpeg", categoria: "bandejas", precio: 33000 },
-  { id: "gomi-love-pe", nombre: "Gomi Love P", imagen: "GOMI LOVE PE.jpeg", categoria: "cajas", precio: 24000 },
+  { id: "gomi-love-pe", nombre: "Gomi Love 0.1", imagen: "GOMI LOVE PE.jpeg", categoria: "cajas", precio: 24000 },
   { id: "gomi-crazy", nombre: "Gomi Crazy", imagen: "GOMI CRAZY.jpeg", categoria: "bandejas", precio: 36000 },
-  { id: "gomi-crazy-pe", nombre: "Gomi Crazy P", imagen: "GOMI CRAZY PE.jpeg", categoria: "cajas", precio: 24000 },
+  { id: "gomi-crazy-pe", nombre: "Gomi Crazy 0.1", imagen: "GOMI CRAZY PE.jpeg", categoria: "cajas", precio: 24000 },
   { id: "gomi-hot", nombre: "Gomi Hot", imagen: "GOMI HOT.jpeg", categoria: "bandejas", precio: 34000 },
-  { id: "gomi-hot-pe", nombre: "Gomi Hot P", imagen: "GOMI HOT PE.jpeg", categoria: "cajas", precio: 22000 },
+  { id: "gomi-hot-pe", nombre: "Gomi Hot 0.1", imagen: "GOMI HOT PE.jpeg", categoria: "cajas", precio: 22000 },
   { id: "gomi-fusion", nombre: "Gomi Fusion", imagen: "GOMI FUSION.jpeg", categoria: "bandejas", precio: 36000 },
-  { id: "gomi-fusion-pe", nombre: "Gomi Fusion P", imagen: "GOMI FUSION PE.jpeg", categoria: "cajas", precio: 24000 },
+  { id: "gomi-fusion-pe", nombre: "Gomi Fusion 0.1", imagen: "GOMI FUSION PE.jpeg", categoria: "cajas", precio: 24000 },
   { id: "gomi-boom", nombre: "Gomi Boom", imagen: "GOMI BOOM.jpeg", categoria: "bandejas", precio: 36000 },
-  { id: "gomi-boom-pe", nombre: "Gomi Boom P", imagen: "GOMI BOOM PE.jpeg", categoria: "cajas", precio: 26000 },
+  { id: "gomi-boom-pe", nombre: "Gomi Boom 0.1", imagen: "GOMI BOOM PE.jpeg", categoria: "cajas", precio: 26000 },
   { id: "gomi-extrem", nombre: "Gomi Extrem", imagen: "GOMI EXTREM.jpeg", categoria: "bandejas", precio: 36000 },
-  { id: "gomi-extrem-pe", nombre: "Gomi Extrem P", imagen: "GOMI EXTREM PE.jpeg", categoria: "cajas", precio: 24000 },
+  { id: "gomi-extrem-pe", nombre: "Gomi Extrem 0.1", imagen: "GOMI EXTREM PE.jpeg", categoria: "cajas", precio: 24000 },
   { id: "gomi-fire", nombre: "Gomi Fire", imagen: "GOMI FIRE.jpeg", categoria: "bandejas", precio: 36000 },
-  { id: "gomi-fire-pe", nombre: "Gomi Fire P", imagen: "GOMI FIRE PE.jpeg", categoria: "cajas", precio: 24000 },
+  { id: "gomi-fire-pe", nombre: "Gomi Fire 0.1", imagen: "GOMI FIRE PE.jpeg", categoria: "cajas", precio: 24000 },
   { id: "gomi-volcanic", nombre: "Gomi Volcanic", imagen: "GOMI VOLCANIC.jpeg", categoria: "bandejas", precio: 38000 },
-  { id: "gomi-volcanic-pe", nombre: "Gomi Volcanic P", imagen: "GOMI VOLCANIC PE.jpeg", categoria: "cajas", precio: 26000 }
+  { id: "gomi-volcanic-pe", nombre: "Gomi Volcanic 0.1", imagen: "GOMI VOLCANIC PE.jpeg", categoria: "cajas", precio: 26000 }
 ];
 
 const TELEFONO_WHATSAPP = "573216554791";
