@@ -80,7 +80,7 @@ function renderizarProductos(filtro = "todos") {
 
     const categoria = document.createElement("p");
     categoria.className = "card-cat";
-    categoria.textContent = producto.categoria === "cajas" ? "Caja" : "Bandeja para compartir";
+    categoria.textContent = producto.categoria === "cajas" ? "Trío personal" : "Bandeja para compartir";
 
     const titulo = document.createElement("h3");
     titulo.textContent = producto.nombre;
@@ -182,7 +182,7 @@ function renderizarLista(lista, ids, tipo) {
       }
     } else {
       const categoria = document.createElement("p");
-      categoria.textContent = producto.categoria === "cajas" ? "Caja" : "Bandeja para compartir";
+      categoria.textContent = producto.categoria === "cajas" ? "Trío personal" : "Bandeja para compartir";
       detalles.append(categoria);
     }
 
