@@ -11,24 +11,46 @@ const PRODUCTOS = [
   { id: "gomi-hot", nombre: "Gomi Hot", imagen: "GOMI HOT.jpeg", categoria: "bandejas", precio: 34000 },
   { id: "gomi-hot-pe", nombre: "Gomi Hot 0.1", imagen: "GOMI HOT PE.jpeg", categoria: "cajas", precio: 22000 },
   { id: "gomi-fusion", nombre: "Gomi Fusion", imagen: "GOMI FUSION.jpeg", categoria: "bandejas", precio: 36000 },
-  { id: "gomi-fusion-pe", nombre: "Gomi Fusion 0.1", imagen: "GOMI FUSION PE.jpeg", categoria: "cajas", precio: 24000 },
+  { id: "gomi-fusion-pe", nombre: "Gomi Fusion 0.1", imagen: "GOMI FUSION PE.jpeg", categoria: "cajas", precio: 25000 },
   { id: "gomi-boom", nombre: "Gomi Boom", imagen: "GOMI BOOM.jpeg", categoria: "bandejas", precio: 36000 },
   { id: "gomi-boom-pe", nombre: "Gomi Boom 0.1", imagen: "GOMI BOOM PE.jpeg", categoria: "cajas", precio: 26000 },
   { id: "gomi-extrem", nombre: "Gomi Extrem", imagen: "GOMI EXTREM.jpeg", categoria: "bandejas", precio: 36000 },
   { id: "gomi-extrem-pe", nombre: "Gomi Extrem 0.1", imagen: "GOMI EXTREM PE.jpeg", categoria: "cajas", precio: 24000 },
   { id: "gomi-fire", nombre: "Gomi Fire", imagen: "GOMI FIRE.jpeg", categoria: "bandejas", precio: 36000 },
-  { id: "gomi-fire-pe", nombre: "Gomi Fire 0.1", imagen: "GOMI FIRE PE.jpeg", categoria: "cajas", precio: 24000 },
+  { id: "gomi-fire-pe", nombre: "Gomi Fire 0.1", imagen: "GOMI FIRE PE.jpeg", categoria: "cajas", precio: 25000 },
   { id: "gomi-volcanic", nombre: "Gomi Volcanic", imagen: "GOMI VOLCANIC.jpeg", categoria: "bandejas", precio: 38000 },
-  { id: "gomi-volcanic-pe", nombre: "Gomi Volcanic 0.1", imagen: "GOMI VOLCANIC PE.jpeg", categoria: "cajas", precio: 26000 }
+  { id: "gomi-volcanic-pe", nombre: "Gomi Volcanic 0.1", imagen: "GOMI VOLCANIC PE.jpeg", categoria: "cajas", precio: 26000 },
+  { id: "sencilla-p18", nombre: "Sencilla 0.2", imagen: "P18.jpeg", categoria: "sencilla", precio: 18000 },
+  { id: "sencilla-p12", nombre: "Sencilla 0.1", imagen: "P12.jpeg", categoria: "sencilla", precio: 12000 }
 ];
 
 const TELEFONO_WHATSAPP = "573216554791";
+const STORAGE_DISPONIBILIDAD = "hotbite-disponibilidad-v1";
+const PRECIO_TRIO_PERSONALIZADO = 24000;
+const OPCIONES_TRIO = [
+  {
+    id: "frutas",
+    titulo: "Frutas",
+    opciones: ["Mango rayado", "Mango en cuadro", "Piña", "Mamoncillo", "Guayaba"]
+  },
+  {
+    id: "gomitas",
+    titulo: "Gomitas",
+    opciones: ["Enchiladas", "Sin enchilar", "Ácidas"]
+  },
+  {
+    id: "takis",
+    titulo: "Takis",
+    opciones: ["Rojos", "Azules"]
+  }
+];
 const formatoPrecio = new Intl.NumberFormat("es-CO", {
   style: "currency",
   currency: "COP",
   maximumFractionDigits: 0
 });
 const productosPorId = new Map(PRODUCTOS.map((producto) => [producto.id, producto]));
+let disponibilidad = JSON.parse(localStorage.getItem(STORAGE_DISPONIBILIDAD) || "{}");
 const carrito = new Map();
 const favoritos = new Set();
 
@@ -46,6 +68,26 @@ const totalCarrito = document.querySelector("#total-carrito");
 const overlay = document.querySelector("#overlay");
 const panelCarrito = document.querySelector("#panel-carrito");
 const panelFavoritos = document.querySelector("#panel-favoritos");
+const opcionesTrio = document.querySelector("#opciones-trio");
+const contadorTrio = document.querySelector("#trio-contador");
+const seleccionTrio = document.querySelector("#trio-seleccion");
+const precioTrio = document.querySelector("#trio-precio");
+const botonAgregarTrio = document.querySelector("#agregar-trio");
+const activarExtraTrio = document.querySelector("#activar-extra-trio");
+const camposExtraTrio = document.querySelector("#campos-extra-trio");
+const extraTrio = document.querySelector("#extra-trio");
+const builderTrio = document.querySelector("#crear-trio");
+const botonCerrarTrio = document.querySelector("#cerrar-trio");
+const seleccionActualTrio = new Set();
+
+function productoDisponible(id) {
+  return disponibilidad[id] !== false;
+}
+
+function enviarPedidoWhatsApp(mensaje) {
+  const url = `https://wa.me/${TELEFONO_WHATSAPP}?text=${encodeURIComponent(mensaje)}`;
+  window.location.assign(url);
+}
 
 function crearImagen(producto, clase = "") {
   const imagen = document.createElement("img");
@@ -54,6 +96,64 @@ function crearImagen(producto, clase = "") {
   imagen.loading = "lazy";
   if (clase) imagen.className = clase;
   return imagen;
+}
+
+function renderizarOpcionesTrio() {
+  for (const clave of seleccionActualTrio) {
+    const [grupo, opcion] = clave.split("|");
+    if (!productoDisponible(`trio|${grupo}|${opcion}`)) seleccionActualTrio.delete(clave);
+  }
+
+  opcionesTrio.replaceChildren();
+
+  OPCIONES_TRIO.forEach((grupo) => {
+    const fieldset = document.createElement("fieldset");
+    fieldset.className = "trio-group";
+
+    const legend = document.createElement("legend");
+    legend.textContent = grupo.titulo;
+    fieldset.append(legend);
+
+    grupo.opciones.forEach((opcion) => {
+      const label = document.createElement("label");
+      label.className = "trio-option";
+
+      const checkbox = document.createElement("input");
+      const clave = `${grupo.id}|${opcion}`;
+      checkbox.type = "checkbox";
+      checkbox.value = opcion;
+      checkbox.dataset.grupo = grupo.id;
+      checkbox.dataset.opcion = opcion;
+      checkbox.checked = seleccionActualTrio.has(clave);
+      checkbox.disabled = !productoDisponible(`trio|${clave}`)
+        || (!checkbox.checked && seleccionActualTrio.size >= 3);
+
+      const texto = document.createElement("span");
+      texto.textContent = opcion;
+      label.append(checkbox, texto);
+      fieldset.append(label);
+    });
+
+    opcionesTrio.append(fieldset);
+  });
+
+  actualizarResumenTrio();
+}
+
+function actualizarResumenTrio() {
+  contadorTrio.textContent = `${seleccionActualTrio.size} de 3 elegidos`;
+  precioTrio.textContent = `Precio del trío: ${formatoPrecio.format(PRECIO_TRIO_PERSONALIZADO)}`;
+
+  if (seleccionActualTrio.size === 3) {
+    const nombres = OPCIONES_TRIO.flatMap((grupo) =>
+      grupo.opciones.filter((opcion) => seleccionActualTrio.has(`${grupo.id}|${opcion}`))
+    );
+    seleccionTrio.textContent = nombres.join(" + ");
+    botonAgregarTrio.disabled = false;
+  } else {
+    seleccionTrio.textContent = "Aún no has elegido tus 3 productos.";
+    botonAgregarTrio.disabled = true;
+  }
 }
 
 function renderizarProductos(filtro = "todos") {
@@ -80,7 +180,9 @@ function renderizarProductos(filtro = "todos") {
 
     const categoria = document.createElement("p");
     categoria.className = "card-cat";
-    categoria.textContent = producto.categoria === "cajas" ? "Personal" : "Bandeja para compartir";
+    categoria.textContent = producto.categoria === "cajas"
+      ? "Personal"
+      : producto.categoria === "sencilla" ? "Sencilla" : "Bandeja para compartir";
 
     const titulo = document.createElement("h3");
     titulo.textContent = producto.nombre;
@@ -91,14 +193,29 @@ function renderizarProductos(filtro = "todos") {
       ? "Precio por cotizar"
       : formatoPrecio.format(producto.precio);
 
+    const disponible = productoDisponible(producto.id);
+    const estado = document.createElement("p");
+    estado.className = `product-availability${disponible ? "" : " is-unavailable"}`;
+    estado.textContent = disponible ? "Disponible" : "No disponible";
+
     const botonAgregar = document.createElement("button");
     botonAgregar.className = "btn";
     botonAgregar.type = "button";
     botonAgregar.dataset.accion = "agregar";
     botonAgregar.dataset.id = producto.id;
-    botonAgregar.textContent = "Agregar al carrito";
+    botonAgregar.textContent = disponible ? "Pedir por WhatsApp" : "No disponible";
+    botonAgregar.dataset.accion = "pedir-whatsapp";
+    botonAgregar.disabled = !disponible;
 
-    cuerpo.append(categoria, titulo, precio, botonAgregar);
+    const botonCarrito = document.createElement("button");
+    botonCarrito.className = "btn btn-outline card-cart-btn";
+    botonCarrito.type = "button";
+    botonCarrito.dataset.accion = "agregar";
+    botonCarrito.dataset.id = producto.id;
+    botonCarrito.textContent = "Agregar al carrito";
+    botonCarrito.disabled = !disponible;
+
+    cuerpo.append(categoria, titulo, precio, estado, botonAgregar, botonCarrito);
     tarjeta.append(botonFavorito, crearImagen(producto), cuerpo);
     listaProductos.append(tarjeta);
   });
@@ -163,6 +280,12 @@ function renderizarLista(lista, ids, tipo) {
     detalles.append(titulo);
 
     if (tipo === "carrito") {
+      if (!productoDisponible(id)) {
+        const estado = document.createElement("p");
+        estado.className = "product-availability is-unavailable";
+        estado.textContent = "No disponible actualmente";
+        detalles.append(estado);
+      }
       const cantidad = carrito.get(id);
       const unidadesEnCarrito = [...carrito.values()].reduce((suma, unidades) => suma + unidades, 0);
       const precioNormal = document.createElement("p");
@@ -182,16 +305,20 @@ function renderizarLista(lista, ids, tipo) {
       }
     } else {
       const categoria = document.createElement("p");
-      categoria.textContent = producto.categoria === "cajas" ? "Personal" : "Bandeja para compartir";
+      categoria.textContent = producto.categoria === "cajas"
+        ? "Personal"
+        : producto.categoria === "sencilla" ? "Sencilla" : "Bandeja para compartir";
       detalles.append(categoria);
     }
 
     const acciones = document.createElement("div");
     acciones.className = "item-actions";
     if (tipo === "carrito") {
+      const botonAumentar = crearBotonAccion("+", "aumentar", id, `Agregar una unidad de ${producto.nombre}`);
+      botonAumentar.disabled = !productoDisponible(id, producto);
       acciones.append(
         crearBotonAccion("−", "disminuir", id, `Quitar una unidad de ${producto.nombre}`),
-        crearBotonAccion("+", "aumentar", id, `Agregar una unidad de ${producto.nombre}`)
+        botonAumentar
       );
     }
     acciones.append(crearBotonAccion("×", tipo === "carrito" ? "eliminar-carrito" : "quitar-favorito", id, `Quitar ${producto.nombre}`));
@@ -244,7 +371,31 @@ function gestionarAccion(boton) {
   const { accion, id } = boton.dataset;
   if (!productosPorId.has(id)) return;
 
+  if (accion === "pedir-whatsapp") {
+    const producto = productosPorId.get(id);
+    if (!productoDisponible(id, producto)) {
+      window.alert("Este producto no está disponible actualmente.");
+      return;
+    }
+    const precio = producto.precio === undefined
+      ? "precio por cotizar"
+      : formatoPrecio.format(producto.precio);
+    const mensaje = [
+      "Hola, quiero pedir de Hot Bite:",
+      `- ${producto.nombre}: 1 · ${precio}`,
+      ...(producto.precio === undefined ? [] : [`Total: ${precio}`]),
+      "",
+      "Por favor, confirmen la disponibilidad."
+    ].join("\n");
+    enviarPedidoWhatsApp(mensaje);
+    return;
+  }
+
   if (accion === "agregar" || accion === "aumentar") {
+    if (!productoDisponible(id)) {
+      window.alert("Este producto no está disponible actualmente.");
+      return;
+    }
     carrito.set(id, (carrito.get(id) || 0) + 1);
     actualizarCarrito();
   } else if (accion === "disminuir" || accion === "eliminar-carrito") {
@@ -271,6 +422,13 @@ document.addEventListener("click", (evento) => {
     return;
   }
 
+  const botonAbrirTrio = evento.target.closest("[data-abrir-trio]");
+  if (botonAbrirTrio) {
+    builderTrio.hidden = false;
+    builderTrio.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+
   const botonFiltro = evento.target.closest("[data-filtro]");
   if (botonFiltro) {
     actualizarFiltros(botonFiltro.dataset.filtro);
@@ -287,8 +445,73 @@ document.querySelector("#vaciar-carrito").addEventListener("click", () => {
   actualizarCarrito();
 });
 
+opcionesTrio.addEventListener("change", (evento) => {
+  const checkbox = evento.target.closest('input[type="checkbox"]');
+  if (!checkbox) return;
+
+  const clave = `${checkbox.dataset.grupo}|${checkbox.dataset.opcion}`;
+  if (checkbox.checked) {
+    if (seleccionActualTrio.size >= 3) {
+      checkbox.checked = false;
+      return;
+    }
+    seleccionActualTrio.add(clave);
+  } else {
+    seleccionActualTrio.delete(clave);
+  }
+
+  renderizarOpcionesTrio();
+});
+
+activarExtraTrio.addEventListener("change", () => {
+  camposExtraTrio.hidden = !activarExtraTrio.checked;
+  extraTrio.setCustomValidity("");
+  if (!activarExtraTrio.checked) extraTrio.value = "";
+});
+
+extraTrio.addEventListener("input", () => {
+  extraTrio.setCustomValidity("");
+});
+
+botonAgregarTrio.addEventListener("click", () => {
+  if (seleccionActualTrio.size !== 3) return;
+
+  const ingredientes = [...seleccionActualTrio].map((clave) => `trio|${clave}`);
+  if (ingredientes.some((id) => !productoDisponible(id))) {
+    renderizarOpcionesTrio();
+    return;
+  }
+  const nombres = OPCIONES_TRIO.flatMap((grupo) =>
+    grupo.opciones.filter((opcion) => seleccionActualTrio.has(`${grupo.id}|${opcion}`))
+  );
+  const extra = activarExtraTrio.checked ? extraTrio.value.trim() : "";
+  if (activarExtraTrio.checked && !extra) {
+    extraTrio.setCustomValidity("Escribe qué adición quieres agregar.");
+    extraTrio.reportValidity();
+    return;
+  }
+  const mensaje = [
+    "Hola, quiero pedir un trío personalizado de Hot Bite:",
+    `- ${nombres.join(" + ")}`,
+    `Precio del trío: ${formatoPrecio.format(PRECIO_TRIO_PERSONALIZADO)}`,
+    ...(extra ? [`- Extra solicitado: ${extra} (valor por confirmar)`] : []),
+    "",
+    "Por favor, confirmen la disponibilidad."
+  ].join("\n");
+  enviarPedidoWhatsApp(mensaje);
+});
+
+botonCerrarTrio.addEventListener("click", () => {
+  builderTrio.hidden = true;
+});
+
 document.querySelector("#comprar-whatsapp").addEventListener("click", () => {
   if (!carrito.size) {
+    abrirPanel(panelCarrito);
+    return;
+  }
+  if ([...carrito.keys()].some((id) => !productoDisponible(id))) {
+    window.alert("Tu carrito incluye productos que ya no están disponibles. Quítalos para continuar.");
     abrirPanel(panelCarrito);
     return;
   }
@@ -323,6 +546,15 @@ document.addEventListener("keydown", (evento) => {
   if (evento.key === "Escape") cerrarPanel();
 });
 
+window.addEventListener("storage", (evento) => {
+  if (evento.key !== STORAGE_DISPONIBILIDAD) return;
+  disponibilidad = JSON.parse(evento.newValue || "{}");
+  renderizarProductos(document.querySelector("[data-filtro].is-active")?.dataset.filtro || "todos");
+  renderizarOpcionesTrio();
+  actualizarCarrito();
+});
+
 actualizarFiltros("todos");
 actualizarCarrito();
 actualizarFavoritos();
+renderizarOpcionesTrio();

@@ -75,8 +75,14 @@
         <button class="category" type="button" data-filtro="cajas">
           <span>Trío</span><span aria-hidden="true"></span>
         </button>
+        <button class="category category-create" type="button" data-abrir-trio>
+          <span>Crea tu trío</span><span aria-hidden="true">＋</span>
+        </button>
         <button class="category" type="button" data-filtro="bandejas">
           <span>Bandejas para compartir</span><span aria-hidden="true"></span>
+        </button>
+        <button class="category" type="button" data-filtro="sencilla">
+          <span>Sencilla</span><span aria-hidden="true"></span>
         </button>
       </div>
     </section>
@@ -85,16 +91,55 @@
     <section class="section" id="productos">
       <p class="eyebrow">Catálogo</p>
       <h2>Nuestros productos</h2>
-      <p class="section-sub">Elige tus favoritos y agrégalos al carrito.</p>
+      <p class="section-sub">Pide por WhatsApp o agrega productos al carrito.</p>
 
       <div class="catalog-bar">
         <p class="count" id="contador-productos" aria-live="polite">0 productos encontrados</p>
         <div class="chips">
           <button class="chip is-active" type="button" data-filtro="todos">Todos</button>
           <button class="chip" type="button" data-filtro="cajas">Trío</button>
+          <button class="chip" type="button" data-abrir-trio>Crea tu trío</button>
           <button class="chip" type="button" data-filtro="bandejas">Bandejas</button>
+          <button class="chip" type="button" data-filtro="sencilla">Sencilla</button>
         </div>
       </div>
+
+      <article class="trio-builder" id="crear-trio" hidden>
+        <div class="trio-builder-head">
+          <div>
+            <p class="tag">Arma el tuyo</p>
+            <h3>Crea tu trío</h3>
+            <p>Elige 3 productos en cualquier combinación.</p>
+          </div>
+          <div class="trio-builder-actions">
+            <div class="trio-count" id="trio-contador" aria-live="polite">0 de 3 elegidos</div>
+            <button class="close" type="button" id="cerrar-trio" aria-label="Cerrar Crea tu trío">✕</button>
+          </div>
+        </div>
+
+        <div class="trio-categories" id="opciones-trio"></div>
+
+        <div class="trio-addition">
+          <label class="trio-addition-toggle" for="activar-extra-trio">
+            <input id="activar-extra-trio" type="checkbox">
+            <span>＋ Agregar una adición al trío (opcional)</span>
+          </label>
+          <div class="trio-addition-fields" id="campos-extra-trio" hidden>
+            <label for="extra-trio">¿Qué quieres adicionar?</label>
+            <input id="extra-trio" class="trio-extra" type="text" maxlength="140" placeholder="Escribe aquí tu adición">
+            <p>Confirmaremos el valor de la adición por WhatsApp.</p>
+          </div>
+        </div>
+
+        <div class="trio-summary">
+          <div>
+            <p class="trio-label">Tu selección</p>
+            <p id="trio-seleccion">Aún no has elegido tus 3 productos.</p>
+            <p class="trio-price" id="trio-precio"></p>
+          </div>
+          <button class="btn" id="agregar-trio" type="button" disabled>Enviar trío por WhatsApp</button>
+        </div>
+      </article>
 
       <div class="grid" id="lista-productos"></div>
     </section>
@@ -166,6 +211,6 @@
     <p class="copy">© 2026 Hot Bite</p>
   </footer>
 
-  <script src="script.js?v=2"></script>
+  <script src="script.js?v=4"></script>
 </body>
 </html>
