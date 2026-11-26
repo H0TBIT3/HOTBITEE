@@ -362,6 +362,14 @@ h2 {
   margin: 2rem 0 1.5rem;
 }
 
+.sync-status {
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--rojo-vivo);
+  color: #fff;
+  background: var(--superficie-2);
+}
+
 .count {
   margin: 0;
   color: var(--suave);

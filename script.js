@@ -25,7 +25,6 @@ const PRODUCTOS = [
 ];
 
 const TELEFONO_WHATSAPP = "573216554791";
-const STORAGE_DISPONIBILIDAD = "hotbite-disponibilidad-v1";
 const PRECIO_TRIO_PERSONALIZADO = 24000;
 const OPCIONES_TRIO = [
   {
@@ -50,7 +49,9 @@ const formatoPrecio = new Intl.NumberFormat("es-CO", {
   maximumFractionDigits: 0
 });
 const productosPorId = new Map(PRODUCTOS.map((producto) => [producto.id, producto]));
-let disponibilidad = JSON.parse(localStorage.getItem(STORAGE_DISPONIBILIDAD) || "{}");
+const supabaseClient = window.HOTBITE_SUPABASE_CLIENT;
+let disponibilidad = {};
+let disponibilidadCargada = false;
 const carrito = new Map();
 const favoritos = new Set();
 
@@ -78,10 +79,36 @@ const camposExtraTrio = document.querySelector("#campos-extra-trio");
 const extraTrio = document.querySelector("#extra-trio");
 const builderTrio = document.querySelector("#crear-trio");
 const botonCerrarTrio = document.querySelector("#cerrar-trio");
+const estadoSincronizacion = document.querySelector("#sync-status");
 const seleccionActualTrio = new Set();
 
 function productoDisponible(id) {
-  return disponibilidad[id] !== false;
+  return disponibilidadCargada && disponibilidad[id] !== false;
+}
+
+function mostrarErrorSincronizacion(mensaje) {
+  estadoSincronizacion.textContent = mensaje;
+  estadoSincronizacion.hidden = false;
+}
+
+function actualizarVistaDisponibilidad() {
+  const filtroActivo = document.querySelector("[data-filtro].is-active")?.dataset.filtro || "todos";
+  renderizarProductos(filtroActivo);
+  renderizarOpcionesTrio();
+  actualizarCarrito();
+}
+
+async function cargarDisponibilidad() {
+  const { data, error } = await supabaseClient
+    .from("inventory_availability")
+    .select("product_id, is_available");
+  if (error) throw error;
+
+  disponibilidad = Object.fromEntries(
+    data.filter((producto) => !producto.is_available).map((producto) => [producto.product_id, false])
+  );
+  disponibilidadCargada = true;
+  actualizarVistaDisponibilidad();
 }
 
 function enviarPedidoWhatsApp(mensaje) {
@@ -125,7 +152,7 @@ function renderizarOpcionesTrio() {
       checkbox.dataset.grupo = grupo.id;
       checkbox.dataset.opcion = opcion;
       checkbox.checked = seleccionActualTrio.has(clave);
-      checkbox.disabled = !productoDisponible(`trio|${clave}`)
+      checkbox.disabled = !disponibilidadCargada || !productoDisponible(`trio|${clave}`)
         || (!checkbox.checked && seleccionActualTrio.size >= 3);
 
       const texto = document.createElement("span");
@@ -196,14 +223,18 @@ function renderizarProductos(filtro = "todos") {
     const disponible = productoDisponible(producto.id);
     const estado = document.createElement("p");
     estado.className = `product-availability${disponible ? "" : " is-unavailable"}`;
-    estado.textContent = disponible ? "Disponible" : "No disponible";
+    estado.textContent = !disponibilidadCargada
+      ? "Verificando disponibilidad…"
+      : disponible ? "Disponible" : "No disponible";
 
     const botonAgregar = document.createElement("button");
     botonAgregar.className = "btn";
     botonAgregar.type = "button";
     botonAgregar.dataset.accion = "agregar";
     botonAgregar.dataset.id = producto.id;
-    botonAgregar.textContent = disponible ? "Pedir por WhatsApp" : "No disponible";
+    botonAgregar.textContent = !disponibilidadCargada
+      ? "Cargando disponibilidad"
+      : disponible ? "Pedir por WhatsApp" : "No disponible";
     botonAgregar.dataset.accion = "pedir-whatsapp";
     botonAgregar.disabled = !disponible;
 
@@ -212,7 +243,9 @@ function renderizarProductos(filtro = "todos") {
     botonCarrito.type = "button";
     botonCarrito.dataset.accion = "agregar";
     botonCarrito.dataset.id = producto.id;
-    botonCarrito.textContent = "Agregar al carrito";
+    botonCarrito.textContent = !disponibilidadCargada
+      ? "Cargando disponibilidad"
+      : "Agregar al carrito";
     botonCarrito.disabled = !disponible;
 
     cuerpo.append(categoria, titulo, precio, estado, botonAgregar, botonCarrito);
@@ -370,6 +403,10 @@ function cerrarPanel() {
 function gestionarAccion(boton) {
   const { accion, id } = boton.dataset;
   if (!productosPorId.has(id)) return;
+  if (!disponibilidadCargada) {
+    window.alert("No se pudo verificar la disponibilidad. Intenta de nuevo cuando se restablezca la conexión.");
+    return;
+  }
 
   if (accion === "pedir-whatsapp") {
     const producto = productosPorId.get(id);
@@ -474,6 +511,10 @@ extraTrio.addEventListener("input", () => {
 });
 
 botonAgregarTrio.addEventListener("click", () => {
+  if (!disponibilidadCargada) {
+    window.alert("No se pudo verificar la disponibilidad. Intenta de nuevo cuando se restablezca la conexión.");
+    return;
+  }
   if (seleccionActualTrio.size !== 3) return;
 
   const ingredientes = [...seleccionActualTrio].map((clave) => `trio|${clave}`);
@@ -506,6 +547,10 @@ botonCerrarTrio.addEventListener("click", () => {
 });
 
 document.querySelector("#comprar-whatsapp").addEventListener("click", () => {
+  if (!disponibilidadCargada) {
+    window.alert("No se pudo verificar la disponibilidad. Intenta de nuevo cuando se restablezca la conexión.");
+    return;
+  }
   if (!carrito.size) {
     abrirPanel(panelCarrito);
     return;
@@ -546,15 +591,43 @@ document.addEventListener("keydown", (evento) => {
   if (evento.key === "Escape") cerrarPanel();
 });
 
-window.addEventListener("storage", (evento) => {
-  if (evento.key !== STORAGE_DISPONIBILIDAD) return;
-  disponibilidad = JSON.parse(evento.newValue || "{}");
-  renderizarProductos(document.querySelector("[data-filtro].is-active")?.dataset.filtro || "todos");
-  renderizarOpcionesTrio();
-  actualizarCarrito();
-});
-
 actualizarFiltros("todos");
 actualizarCarrito();
 actualizarFavoritos();
 renderizarOpcionesTrio();
+
+if (!supabaseClient) {
+  mostrarErrorSincronizacion(`${window.HOTBITE_SUPABASE_CONFIG_ERROR || "No se pudo conectar con Supabase."} La disponibilidad de los productos no está disponible.`);
+} else {
+  cargarDisponibilidad()
+    .then(() => {
+      supabaseClient
+        .channel("hotbite-store-inventory")
+        .on("postgres_changes", {
+          event: "*",
+          schema: "public",
+          table: "inventory_availability"
+        }, (cambio) => {
+          const producto = cambio.new || cambio.old;
+          if (!producto) return;
+          if (cambio.eventType === "DELETE") {
+            delete disponibilidad[producto.product_id];
+          } else if (producto.is_available) {
+            delete disponibilidad[producto.product_id];
+          } else {
+            disponibilidad[producto.product_id] = false;
+          }
+          actualizarVistaDisponibilidad();
+        })
+        .subscribe((estado) => {
+          if (estado === "CHANNEL_ERROR" || estado === "TIMED_OUT") {
+            mostrarErrorSincronizacion("La disponibilidad cargó, pero no se reciben cambios en tiempo real. Recarga la página para actualizarla.");
+          } else if (estado === "SUBSCRIBED") {
+            estadoSincronizacion.hidden = true;
+          }
+        });
+    })
+    .catch((error) => {
+      mostrarErrorSincronizacion(`No se pudo consultar la disponibilidad. ${error.message}`);
+    });
+}

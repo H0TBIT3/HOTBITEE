@@ -1,9 +1,3 @@
-const STORAGE_DISPONIBILIDAD = "hotbite-disponibilidad-v1";
-const STORAGE_CREDENCIALES = "hotbite-admin-credenciales-v1";
-const STORAGE_VENTAS = "hotbite-ventas-v1";
-const SESSION_ADMIN = "hotbite-admin-sesion-v1";
-const ITERACIONES_HASH = 150000;
-
 const INVENTARIO = [
   {
     titulo: "Tríos y bandejas",
@@ -65,16 +59,16 @@ const INVENTARIO = [
   }
 ];
 
+const supabaseClient = window.HOTBITE_SUPABASE_CLIENT;
 const accesoAdmin = document.querySelector("#admin-acceso");
 const panelAdmin = document.querySelector("#admin-panel");
 const formularioAdmin = document.querySelector("#admin-form");
-const instruccionAdmin = document.querySelector("#admin-instruccion");
+const campoEmail = document.querySelector("#admin-email");
 const campoPassword = document.querySelector("#admin-password");
-const envolturaConfirmacion = document.querySelector("#confirmacion-wrap");
-const campoConfirmacion = document.querySelector("#admin-confirmacion");
 const errorAdmin = document.querySelector("#admin-error");
 const botonEnviar = document.querySelector("#admin-enviar");
 const inventarioAdmin = document.querySelector("#admin-inventario");
+const errorDatos = document.querySelector("#admin-data-error");
 const formularioVenta = document.querySelector("#venta-form");
 const campoFechaVentas = document.querySelector("#ventas-fecha");
 const campoDetalleVenta = document.querySelector("#venta-detalle");
@@ -89,82 +83,16 @@ const formatoMoneda = new Intl.NumberFormat("es-CO", {
   currency: "COP",
   maximumFractionDigits: 0
 });
+let canalAdmin;
 
-function mostrarError(mensaje) {
+function mostrarErrorAcceso(mensaje) {
   errorAdmin.textContent = mensaje;
   errorAdmin.hidden = false;
 }
 
-function tieneCredenciales() {
-  return localStorage.getItem(STORAGE_CREDENCIALES) !== null;
-}
-
-function actualizarFormularioAcceso() {
-  const inicial = !tieneCredenciales();
-  instruccionAdmin.textContent = inicial
-    ? "Crea una contraseña local para este navegador."
-    : "Ingresa tu contraseña local para administrar la disponibilidad.";
-  campoPassword.autocomplete = inicial ? "new-password" : "current-password";
-  envolturaConfirmacion.hidden = !inicial;
-  campoConfirmacion.required = inicial;
-  botonEnviar.textContent = inicial ? "Crear contraseña" : "Ingresar";
-}
-
-function codificarHex(buffer) {
-  return [...new Uint8Array(buffer)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-async function calcularHash(password, salt, iteraciones) {
-  if (!crypto.subtle) {
-    throw new Error("El navegador requiere una conexión HTTPS para crear el acceso local.");
-  }
-  const clave = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(password),
-    "PBKDF2",
-    false,
-    ["deriveBits"]
-  );
-  const resultado = await crypto.subtle.deriveBits({
-    name: "PBKDF2",
-    salt,
-    iterations: iteraciones,
-    hash: "SHA-256"
-  }, clave, 256);
-  return codificarHex(resultado);
-}
-
-function decodificarHex(hex) {
-  const bytes = new Uint8Array(hex.match(/.{2}/g).map((par) => parseInt(par, 16)));
-  return bytes;
-}
-
-async function guardarCredenciales(password) {
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const credenciales = {
-    salt: codificarHex(salt),
-    hash: await calcularHash(password, salt, ITERACIONES_HASH),
-    iteraciones: ITERACIONES_HASH
-  };
-  localStorage.setItem(STORAGE_CREDENCIALES, JSON.stringify(credenciales));
-}
-
-async function validarCredenciales(password) {
-  const credenciales = JSON.parse(localStorage.getItem(STORAGE_CREDENCIALES));
-  const hash = await calcularHash(password, decodificarHex(credenciales.salt), credenciales.iteraciones);
-  return hash === credenciales.hash;
-}
-
-function leerDisponibilidad() {
-  return JSON.parse(localStorage.getItem(STORAGE_DISPONIBILIDAD) || "{}");
-}
-
-function leerVentas() {
-  const ventas = JSON.parse(localStorage.getItem(STORAGE_VENTAS) || "[]");
-  if (!Array.isArray(ventas)) throw new Error("El registro guardado de ventas no tiene un formato válido.");
-  return ventas;
+function mostrarErrorDatos(mensaje) {
+  errorDatos.textContent = mensaje;
+  errorDatos.hidden = false;
 }
 
 function fechaLocalISO(fecha = new Date()) {
@@ -174,9 +102,14 @@ function fechaLocalISO(fecha = new Date()) {
   return `${anio}-${mes}-${dia}`;
 }
 
-function renderizarInventario() {
+async function cargarInventario() {
+  const { data: disponibilidad, error } = await supabaseClient
+    .from("inventory_availability")
+    .select("product_id, is_available");
+  if (error) throw error;
+
+  const estados = new Map(disponibilidad.map(({ product_id, is_available }) => [product_id, is_available]));
   inventarioAdmin.replaceChildren();
-  const disponibilidad = leerDisponibilidad();
   const seccionNoDisponibles = document.createElement("section");
   seccionNoDisponibles.className = "admin-group admin-unavailable-group";
 
@@ -195,7 +128,6 @@ function renderizarInventario() {
   seccionDisponibles.append(tituloDisponibles, gruposDisponibles);
 
   let cantidadNoDisponibles = 0;
-
   INVENTARIO.forEach((grupo) => {
     const subtitulo = document.createElement("h4");
     subtitulo.textContent = grupo.titulo;
@@ -203,7 +135,7 @@ function renderizarInventario() {
     listaDisponibles.className = "admin-items";
 
     grupo.productos.forEach(([id, nombre]) => {
-      const disponible = disponibilidad[id] !== false;
+      const disponible = estados.get(id) !== false;
       const fila = document.createElement("div");
       fila.className = "admin-item";
 
@@ -244,12 +176,15 @@ function renderizarInventario() {
   inventarioAdmin.append(seccionNoDisponibles, seccionDisponibles);
 }
 
-function renderizarVentas() {
-  const ventasDelDia = leerVentas()
-    .filter((venta) => venta.fecha === campoFechaVentas.value)
-    .sort((a, b) => b.hora - a.hora);
-  const total = ventasDelDia.reduce((suma, venta) => suma + venta.valor, 0);
+async function cargarVentas() {
+  const { data: ventasDelDia, error } = await supabaseClient
+    .from("sales")
+    .select("id, sale_date, detail, amount_cop, created_at")
+    .eq("sale_date", campoFechaVentas.value)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
 
+  const total = ventasDelDia.reduce((suma, venta) => suma + venta.amount_cop, 0);
   totalVentas.textContent = formatoMoneda.format(total);
   cantidadVentas.textContent = String(ventasDelDia.length);
   listaVentas.replaceChildren();
@@ -261,9 +196,9 @@ function renderizarVentas() {
 
     const detalle = document.createElement("div");
     const nombre = document.createElement("strong");
-    nombre.textContent = venta.detalle || "Venta";
+    nombre.textContent = venta.detail || "Venta";
     const hora = document.createElement("p");
-    hora.textContent = new Date(venta.hora).toLocaleTimeString("es-CO", {
+    hora.textContent = new Date(venta.created_at).toLocaleTimeString("es-CO", {
       hour: "2-digit",
       minute: "2-digit"
     });
@@ -271,13 +206,13 @@ function renderizarVentas() {
 
     const valor = document.createElement("strong");
     valor.className = "admin-sale-value";
-    valor.textContent = formatoMoneda.format(venta.valor);
+    valor.textContent = formatoMoneda.format(venta.amount_cop);
 
     const quitar = document.createElement("button");
     quitar.className = "mini";
     quitar.type = "button";
     quitar.dataset.eliminarVenta = venta.id;
-    quitar.setAttribute("aria-label", `Eliminar venta ${venta.detalle || ""} ${formatoMoneda.format(venta.valor)}`);
+    quitar.setAttribute("aria-label", `Eliminar venta ${venta.detail || ""} ${formatoMoneda.format(venta.amount_cop)}`);
     quitar.textContent = "×";
 
     fila.append(detalle, valor, quitar);
@@ -285,60 +220,116 @@ function renderizarVentas() {
   });
 }
 
-function abrirPanelAdmin() {
+async function cargarPanelAdmin(usuario) {
+  const { data: membresia, error } = await supabaseClient
+    .from("admin_users")
+    .select("user_id")
+    .eq("user_id", usuario.id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!membresia) {
+    await supabaseClient.auth.signOut();
+    throw new Error("Esta cuenta no está autorizada como administradora.");
+  }
+
   accesoAdmin.hidden = true;
   panelAdmin.hidden = false;
-  renderizarInventario();
-  renderizarVentas();
+  errorDatos.hidden = true;
+  const resultados = await Promise.allSettled([cargarInventario(), cargarVentas()]);
+  if (resultados[0].status === "rejected") {
+    mostrarErrorDatos(`No se pudo cargar el inventario: ${resultados[0].reason.message}`);
+  }
+  if (resultados[1].status === "rejected") {
+    mostrarErrorDatos(`No se pudieron cargar las ventas: ${resultados[1].reason.message}`);
+  }
+
+  if (canalAdmin) await supabaseClient.removeChannel(canalAdmin);
+  canalAdmin = supabaseClient
+    .channel("hotbite-admin-data")
+    .on("postgres_changes", {
+      event: "*",
+      schema: "public",
+      table: "inventory_availability"
+    }, () => {
+      cargarInventario().catch((errorCarga) => mostrarErrorDatos(`No se pudo actualizar el inventario: ${errorCarga.message}`));
+    })
+    .on("postgres_changes", {
+      event: "*",
+      schema: "public",
+      table: "sales"
+    }, () => {
+      cargarVentas().catch((errorCarga) => mostrarErrorDatos(`No se pudieron actualizar las ventas: ${errorCarga.message}`));
+    })
+    .subscribe((estado) => {
+      if (estado === "CHANNEL_ERROR" || estado === "TIMED_OUT") {
+        mostrarErrorDatos("No se reciben actualizaciones en tiempo real. Recarga el panel para sincronizar los datos.");
+      }
+    });
+}
+
+async function iniciarPanel() {
+  if (!supabaseClient) {
+    botonEnviar.disabled = true;
+    mostrarErrorAcceso(`${window.HOTBITE_SUPABASE_CONFIG_ERROR || "No se pudo conectar con Supabase."} Configura la conexión antes de iniciar sesión.`);
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.getSession();
+  if (error) throw error;
+  if (data.session) await cargarPanelAdmin(data.session.user);
 }
 
 campoFechaVentas.value = fechaLocalISO();
-
-if (sessionStorage.getItem(SESSION_ADMIN) === "true") {
-  abrirPanelAdmin();
-} else {
-  actualizarFormularioAcceso();
-}
+iniciarPanel().catch((error) => mostrarErrorAcceso(`No se pudo abrir el panel: ${error.message}`));
 
 formularioAdmin.addEventListener("submit", async (evento) => {
   evento.preventDefault();
   errorAdmin.hidden = true;
+  if (!supabaseClient) {
+    mostrarErrorAcceso("Configura Supabase antes de iniciar sesión.");
+    return;
+  }
 
-  const password = campoPassword.value;
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email: campoEmail.value.trim(),
+    password: campoPassword.value
+  });
+  if (error) {
+    mostrarErrorAcceso(`No se pudo iniciar sesión: ${error.message}`);
+    return;
+  }
+
   try {
-    if (!tieneCredenciales()) {
-      if (password.length < 8) {
-        mostrarError("La contraseña debe tener al menos 8 caracteres.");
-        return;
-      }
-      if (password !== campoConfirmacion.value) {
-        mostrarError("Las contraseñas no coinciden.");
-        return;
-      }
-      await guardarCredenciales(password);
-    } else if (!await validarCredenciales(password)) {
-      mostrarError("Contraseña incorrecta.");
-      return;
-    }
-
-    sessionStorage.setItem(SESSION_ADMIN, "true");
-    abrirPanelAdmin();
-  } catch (error) {
-    mostrarError(`No se pudo completar el acceso local: ${error.message}`);
+    await cargarPanelAdmin(data.user);
+    formularioAdmin.reset();
+  } catch (errorCarga) {
+    mostrarErrorAcceso(`No se pudo abrir el panel: ${errorCarga.message}`);
   }
 });
 
-inventarioAdmin.addEventListener("click", (evento) => {
+inventarioAdmin.addEventListener("click", async (evento) => {
   const boton = evento.target.closest(".admin-toggle");
   if (!boton) return;
 
-  const disponibilidad = leerDisponibilidad();
-  disponibilidad[boton.dataset.id] = boton.getAttribute("aria-pressed") !== "true";
-  localStorage.setItem(STORAGE_DISPONIBILIDAD, JSON.stringify(disponibilidad));
-  renderizarInventario();
+  errorDatos.hidden = true;
+  boton.disabled = true;
+  const disponible = boton.getAttribute("aria-pressed") !== "true";
+  const { error } = await supabaseClient
+    .from("inventory_availability")
+    .upsert({ product_id: boton.dataset.id, is_available: disponible }, { onConflict: "product_id" });
+  if (error) {
+    boton.disabled = false;
+    mostrarErrorDatos(`No se pudo guardar la disponibilidad: ${error.message}`);
+    return;
+  }
+  try {
+    await cargarInventario();
+  } catch (errorCarga) {
+    mostrarErrorDatos(`Se guardó el cambio, pero no se pudo actualizar el inventario: ${errorCarga.message}`);
+  }
 });
 
-formularioVenta.addEventListener("submit", (evento) => {
+formularioVenta.addEventListener("submit", async (evento) => {
   evento.preventDefault();
   errorVenta.hidden = true;
 
@@ -349,45 +340,59 @@ formularioVenta.addEventListener("submit", (evento) => {
     return;
   }
 
-  try {
-    const ventas = leerVentas();
-    ventas.push({
-      id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
-      fecha: campoFechaVentas.value,
-      hora: Date.now(),
-      detalle: campoDetalleVenta.value.trim(),
-      valor
-    });
-    localStorage.setItem(STORAGE_VENTAS, JSON.stringify(ventas));
-    formularioVenta.reset();
-    renderizarVentas();
-  } catch (error) {
+  const { error } = await supabaseClient.from("sales").insert({
+    sale_date: campoFechaVentas.value,
+    detail: campoDetalleVenta.value.trim(),
+    amount_cop: valor
+  });
+  if (error) {
     errorVenta.textContent = `No se pudo guardar la venta: ${error.message}`;
+    errorVenta.hidden = false;
+    return;
+  }
+
+  formularioVenta.reset();
+  try {
+    await cargarVentas();
+  } catch (errorCarga) {
+    errorVenta.textContent = `La venta se guardó, pero no se pudo actualizar la lista: ${errorCarga.message}`;
     errorVenta.hidden = false;
   }
 });
 
-campoFechaVentas.addEventListener("change", renderizarVentas);
+campoFechaVentas.addEventListener("change", () => {
+  cargarVentas().catch((error) => mostrarErrorDatos(`No se pudieron consultar las ventas: ${error.message}`));
+});
 
-listaVentas.addEventListener("click", (evento) => {
+listaVentas.addEventListener("click", async (evento) => {
   const boton = evento.target.closest("[data-eliminar-venta]");
   if (!boton) return;
 
-  const ventas = leerVentas().filter((venta) => venta.id !== boton.dataset.eliminarVenta);
-  localStorage.setItem(STORAGE_VENTAS, JSON.stringify(ventas));
-  renderizarVentas();
+  boton.disabled = true;
+  const { error } = await supabaseClient
+    .from("sales")
+    .delete()
+    .eq("id", boton.dataset.eliminarVenta);
+  if (error) {
+    boton.disabled = false;
+    mostrarErrorDatos(`No se pudo eliminar la venta: ${error.message}`);
+    return;
+  }
+  try {
+    await cargarVentas();
+  } catch (errorCarga) {
+    mostrarErrorDatos(`La venta se eliminó, pero no se pudo actualizar la lista: ${errorCarga.message}`);
+  }
 });
 
-document.querySelector("#admin-salir").addEventListener("click", () => {
-  sessionStorage.removeItem(SESSION_ADMIN);
+document.querySelector("#admin-salir").addEventListener("click", async () => {
+  const { error } = await supabaseClient.auth.signOut();
+  if (error) {
+    mostrarErrorDatos(`No se pudo cerrar sesión: ${error.message}`);
+    return;
+  }
+  if (canalAdmin) await supabaseClient.removeChannel(canalAdmin);
   panelAdmin.hidden = true;
   accesoAdmin.hidden = false;
   formularioAdmin.reset();
-  actualizarFormularioAcceso();
-});
-
-window.addEventListener("storage", (evento) => {
-  if (evento.key === STORAGE_DISPONIBILIDAD && !panelAdmin.hidden) renderizarInventario();
-  if (evento.key === STORAGE_CREDENCIALES && panelAdmin.hidden) actualizarFormularioAcceso();
-  if (evento.key === STORAGE_VENTAS && !panelAdmin.hidden) renderizarVentas();
 });
